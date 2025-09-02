@@ -13,6 +13,24 @@ class NotesListPage extends StatefulWidget {
 class _NotesListPageState extends State<NotesListPage> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedIndex = 2; // Notes tab is selected by default
+  
+  @override
+  void initState() {
+    super.initState();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure Notes tab is selected when this page is active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _selectedIndex != 2) {
+        setState(() {
+          _selectedIndex = 2;
+        });
+      }
+    });
+  }
 
   final List<NoteFolder> allNotes = [
     NoteFolder('Meeting Notes', 12, Icons.folder),

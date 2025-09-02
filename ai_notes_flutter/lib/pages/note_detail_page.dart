@@ -28,6 +28,19 @@ class _NoteDetailPageState extends State<NoteDetailPage> with TickerProviderStat
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
   }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure Notes tab is selected when this page is active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _selectedBottomIndex != 2) {
+        setState(() {
+          _selectedBottomIndex = 2;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {

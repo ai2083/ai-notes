@@ -13,6 +13,24 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   int _selectedIndex = 1; // Chat tab is selected by default
+  
+  @override
+  void initState() {
+    super.initState();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure Chat tab is selected when this page is active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _selectedIndex != 1) {
+        setState(() {
+          _selectedIndex = 1;
+        });
+      }
+    });
+  }
 
   final List<ChatMessage> _messages = [
     ChatMessage(

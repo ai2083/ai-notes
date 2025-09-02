@@ -11,6 +11,24 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   int _selectedIndex = 3; // Me tab is selected
+  
+  @override
+  void initState() {
+    super.initState();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Ensure Me tab is selected when this page is active
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _selectedIndex != 3) {
+        setState(() {
+          _selectedIndex = 3;
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
