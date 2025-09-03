@@ -4,6 +4,7 @@ import 'pages/notes_list_page.dart';
 import 'pages/chat_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/note_detail_page.dart';
+import 'pages/add_note_page.dart';
 import 'data/default_notes_generator.dart';
 
 void main() {
@@ -36,10 +37,122 @@ class NotesHomePage extends StatefulWidget {
 
 class _NotesHomePageState extends State<NotesHomePage> {
   int _selectedIndex = 0; // Home tab is selected by default
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  List<String> _selectedLabels = [];
+  
+  // Available labels for filtering
+  final List<String> _availableLabels = [
+    '学习', '笔记', '复习',
+    '工作', '职业', '技能',
+    '日记', '成长', '反思',
+    '游戏', '娱乐', '儿童'
+  ];
   
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+  
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text;
+    });
+  }
+  
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('筛选标签'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _availableLabels.map((label) {
+                    return CheckboxListTile(
+                      title: Text(label),
+                      value: _selectedLabels.contains(label),
+                      onChanged: (bool? value) {
+                        setDialogState(() {
+                          if (value == true) {
+                            _selectedLabels.add(label);
+                          } else {
+                            _selectedLabels.remove(label);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedLabels.clear();
+                    });
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('清除'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('取消'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {});
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('应用'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  List<NoteCategory> _getFilteredCategories() {
+    final allCategories = DefaultNotesGenerator.generateMinimalDefaultNotes();
+    
+    if (_searchQuery.isEmpty && _selectedLabels.isEmpty) {
+      return allCategories;
+    }
+    
+    return allCategories.map((category) {
+      final filteredItems = category.items.where((item) {
+        // Title search
+        bool titleMatches = _searchQuery.isEmpty || 
+            item.title.toLowerCase().contains(_searchQuery.toLowerCase());
+        
+        // Label filter - for now we'll match against category title since items don't have tags
+        bool labelMatches = _selectedLabels.isEmpty || 
+            _selectedLabels.any((selectedLabel) => 
+                category.title.contains(selectedLabel));
+        
+        return titleMatches && labelMatches;
+      }).toList();
+      
+      return NoteCategory(
+        title: category.title,
+        items: filteredItems,
+      );
+    }).where((category) => category.items.isNotEmpty).toList();
   }
   
   @override
@@ -55,11 +168,10 @@ class _NotesHomePageState extends State<NotesHomePage> {
     });
   }
 
-  // 使用默认笔记生成器为每个类型生成一个默认笔记
-  final List<NoteCategory> categories = DefaultNotesGenerator.generateMinimalDefaultNotes();
-
   @override
   Widget build(BuildContext context) {
+    final filteredCategories = _getFilteredCategories();
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: SafeArea(
@@ -69,34 +181,35 @@ class _NotesHomePageState extends State<NotesHomePage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               color: const Color(0xFFF1F5F9),
+              child: const Center(
+                child: Text(
+                  'Home',
+                  style: TextStyle(
+                    color: Color(0xFF0D141B),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.015,
+                  ),
+                ),
+              ),
+            ),
+            
+            // Filter Button
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        'Home',
-                        style: TextStyle(
-                          color: Color(0xFF0D141B),
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.015,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.transparent,
-                    ),
-                    child: IconButton(
-                      onPressed: () {},
-                      icon: const Icon(
-                        Icons.search,
-                        color: Color(0xFF0D141B),
-                        size: 24,
+                  ElevatedButton.icon(
+                    onPressed: () => _showFilterDialog(),
+                    icon: const Icon(Icons.filter_list, size: 20),
+                    label: Text(_selectedLabels.isEmpty 
+                        ? '筛选' 
+                        : '筛选 (${_selectedLabels.length})'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF007AFF),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
                   ),
@@ -104,13 +217,52 @@ class _NotesHomePageState extends State<NotesHomePage> {
               ),
             ),
             
+            // Search Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: '搜索笔记标题...',
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFF6B7280)),
+                    suffixIcon: IconButton(
+                      onPressed: () {
+                        // Voice input functionality - placeholder for now
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('语音输入功能开发中...')),
+                        );
+                      },
+                      icon: const Icon(Icons.mic, color: Color(0xFF007AFF)),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, 
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            
             // Content
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.only(bottom: 100),
-                itemCount: categories.length,
+                itemCount: filteredCategories.length,
                 itemBuilder: (context, index) {
-                  final category = categories[index];
+                  final category = filteredCategories[index];
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -211,23 +363,20 @@ class _NotesHomePageState extends State<NotesHomePage> {
       
       // Floating Action Button
       floatingActionButton: Container(
-        margin: const EdgeInsets.only(bottom: 80),
-        child: FloatingActionButton.extended(
+        margin: const EdgeInsets.only(bottom: 20), // Moved closer to bottom nav (about 10cm from your request)
+        child: FloatingActionButton(
           onPressed: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const NotesListPage(),
+                builder: (context) => const AddNotePage(),
               ),
             );
           },
-          backgroundColor: const Color(0xFF1380EC),
+          backgroundColor: const Color(0xFF007AFF), // Fashionable iOS-style blue
           foregroundColor: Colors.white,
-          icon: const Icon(Icons.add, size: 24),
-          label: const Text(''),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
-          ),
+          child: const Icon(Icons.add, size: 28),
+          shape: const CircleBorder(), // Ensures perfect circular shape
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
