@@ -14,9 +14,281 @@ class _NotesListPageState extends State<NotesListPage> {
   final TextEditingController _searchController = TextEditingController();
   int _selectedIndex = 2; // Notes tab is selected by default
   
+  // 面包屑导航系统
+  List<String> _currentPath = ['My Notes']; // Current breadcrumb path
+  final ScrollController _breadcrumbScrollController = ScrollController();
+  
+  // File system structure with 8-level depth support
+  final Map<String, dynamic> _fileSystem = {
+    'My Notes': {
+      'type': 'folder',
+      'children': {
+        'Work': {
+          'type': 'folder',
+          'children': {
+            'Meeting Notes': {
+              'type': 'folder',
+              'children': {
+                'Daily Standups': {
+                  'type': 'folder',
+                  'children': {}
+                },
+                'Client Meetings': {
+                  'type': 'folder',
+                  'children': {}
+                }
+              }
+            }
+          }
+        },
+        'Personal': {
+          'type': 'folder',
+          'children': {
+            'Journal': {
+              'type': 'folder',
+              'children': {
+                '2025': {
+                  'type': 'folder',
+                  'children': {
+                    'September': {
+                      'type': 'folder',
+                      'children': {}
+                    }
+                  }
+                }
+              }
+            },
+            'Learning': {
+              'type': 'folder',
+              'children': {
+                'Programming': {
+                  'type': 'folder',
+                  'children': {
+                    'Flutter': {
+                      'type': 'folder',
+                      'children': {}
+                    },
+                    'Python': {
+                      'type': 'folder',
+                      'children': {}
+                    }
+                  }
+                },
+                'Languages': {
+                  'type': 'folder',
+                  'children': {
+                    'English': {
+                      'type': 'folder',
+                      'children': {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        'Study': {
+          'type': 'folder',
+          'children': {
+            'Computer Science': {
+              'type': 'folder',
+              'children': {
+                'Algorithms': {
+                  'type': 'folder',
+                  'children': {}
+                },
+                'Data Structures': {
+                  'type': 'folder',
+                  'children': {}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+  
   @override
   void initState() {
     super.initState();
+  }
+  
+  @override
+  void dispose() {
+    _breadcrumbScrollController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+  
+  // 获取当前文件夹
+  Map<String, dynamic>? get _currentFolder {
+    Map<String, dynamic>? current = _fileSystem;
+    
+    // Navigate through the path
+    for (int i = 0; i < _currentPath.length; i++) {
+      String pathSegment = _currentPath[i];
+      
+      if (current != null && current.containsKey(pathSegment)) {
+        // Get the folder object with safe type conversion
+        var folderObj = current[pathSegment];
+        if (folderObj is Map) {
+          current = Map<String, dynamic>.from(folderObj);
+        } else {
+          return null;
+        }
+        
+        // If this is not the last path segment, navigate to children for the next iteration
+        if (i < _currentPath.length - 1) {
+          if (current['children'] != null) {
+            var childrenObj = current['children'];
+            if (childrenObj is Map) {
+              current = Map<String, dynamic>.from(childrenObj);
+            } else {
+              return null;
+            }
+          } else {
+            return null;
+          }
+        }
+      } else {
+        return null;
+      }
+    }
+    
+    return current;
+  }
+  
+  // 获取当前文件夹内容
+  List<String> get _currentFolderContents {
+    final folder = _currentFolder;
+    if (folder != null && folder['children'] != null) {
+      var childrenObj = folder['children'];
+      if (childrenObj is Map) {
+        // Use a safer approach that works with all Map types
+        var safeChildren = <String, dynamic>{};
+        childrenObj.forEach((key, value) {
+          if (key is String) {
+            safeChildren[key] = value;
+          }
+        });
+        return safeChildren.keys.toList()..sort();
+      }
+    }
+    return [];
+  }
+  
+  // 自动滚动到面包屑末尾
+  void _scrollBreadcrumbToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_breadcrumbScrollController.hasClients) {
+        _breadcrumbScrollController.animateTo(
+          _breadcrumbScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  void _navigateToFolder(String folderName) {
+    if (_currentPath.length < 8) { // Maximum 8 levels
+      setState(() {
+        _currentPath.add(folderName);
+      });
+      _scrollBreadcrumbToEnd();
+    }
+  }
+
+  void _navigateToBreadcrumb(int index) {
+    setState(() {
+      _currentPath = _currentPath.sublist(0, index + 1);
+    });
+  }
+
+  void _navigateUp() {
+    if (_currentPath.length > 1) {
+      setState(() {
+        _currentPath.removeLast();
+      });
+    }
+  }
+  
+  // 显示添加文件夹对话框
+  void _showAddFolderDialog() {
+    final TextEditingController folderNameController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('添加子目录'),
+          content: TextField(
+            controller: folderNameController,
+            decoration: const InputDecoration(
+              labelText: '目录名称',
+              hintText: '请输入目录名称',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                final folderName = folderNameController.text.trim();
+                if (folderName.isNotEmpty) {
+                  _addNewFolder(folderName);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('添加'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  // 添加新文件夹到当前目录
+  void _addNewFolder(String folderName) {
+    // 获取当前文件夹的引用
+    Map<String, dynamic>? currentFolder = _fileSystem;
+    
+    // 遍历路径找到当前文件夹
+    for (int i = 0; i < _currentPath.length; i++) {
+      final pathSegment = _currentPath[i];
+      if (currentFolder != null && currentFolder.containsKey(pathSegment)) {
+        if (i == _currentPath.length - 1) {
+          // 这是最后一个路径段，我们在这里添加新文件夹
+          if (currentFolder[pathSegment]['children'] != null) {
+            currentFolder[pathSegment]['children'][folderName] = {
+              'type': 'folder',
+              'children': <String, dynamic>{}
+            };
+          }
+        } else {
+          // 继续遍历到下一级
+          currentFolder = currentFolder[pathSegment]['children'];
+        }
+      }
+    }
+    
+    // 刷新UI
+    setState(() {});
+    
+    // 显示成功消息
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('成功添加目录: $folderName'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
   
   @override
@@ -33,9 +305,6 @@ class _NotesListPageState extends State<NotesListPage> {
   }
 
   final List<NoteFolder> allNotes = [
-    NoteFolder('Meeting Notes', 12, Icons.folder),
-    NoteFolder('Project Ideas', 8, Icons.folder),
-    NoteFolder('Personal Journal', 5, Icons.folder),
   ];
 
   final List<SharedNote> sharedNotes = [
@@ -89,112 +358,142 @@ class _NotesListPageState extends State<NotesListPage> {
               ),
             ),
 
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: const Color(0xFFE7EDF3),
-                ),
-                child: Row(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Icon(
-                        Icons.search,
-                        color: Color(0xFF4C739A),
-                        size: 24,
-                      ),
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'Search notes',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF4C739A),
-                            fontSize: 16,
-                            fontWeight: FontWeight.normal,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        style: const TextStyle(
-                          color: Color(0xFF0D141B),
-                          fontSize: 16,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Tags Filter
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
-                children: [
-                  Container(
-                    height: 32,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: const Color(0xFFE7EDF3),
-                    ),
-                    child: InkWell(
-                      onTap: () {
-                        _showTagsDialog(context);
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Tags',
-                              style: TextStyle(
-                                color: Color(0xFF0D141B),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              color: Color(0xFF0D141B),
-                              size: 20,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
             // Content
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 100),
                 children: [
-                  // All Notes Section
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'All Notes',
-                      style: TextStyle(
-                        color: Color(0xFF0D141B),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.015,
-                      ),
+                  // Current Directory Section
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 80, 4), // 增加右边距从16到80 (5倍)
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Notes',
+                          style: TextStyle(
+                            color: Color(0xFF0D141B),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.015,
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          height: 32,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: const Color(0xFFE7EDF3),
+                          ),
+                          child: InkWell(
+                            onTap: _showAddFolderDialog,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.create_new_folder,
+                                    color: Color(0xFF007AFF),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    '创建文件夹',
+                                    style: TextStyle(
+                                      color: Color(0xFF007AFF),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  
+                  // Breadcrumb Navigation (Always show)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        // Back button for subdirectories
+                        if (_currentPath.length > 1)
+                          IconButton(
+                            onPressed: _navigateUp,
+                            icon: const Icon(Icons.arrow_back, size: 20),
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                          ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: _breadcrumbScrollController,
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (int i = 0; i < _currentPath.length; i++) ...[
+                                  if (i > 0)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 4),
+                                      child: Icon(Icons.chevron_right, size: 16, color: Colors.grey),
+                                    ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      _navigateToBreadcrumb(i);
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: i == _currentPath.length - 1 
+                                            ? const Color(0xFF007AFF) 
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        _currentPath[i],
+                                        style: TextStyle(
+                                          color: i == _currentPath.length - 1 
+                                              ? Colors.white 
+                                              : const Color(0xFF007AFF),
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 4),
+                  
+                  // Folder Navigation - Always show container with fixed height
+                  Container(
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _currentFolderContents.isNotEmpty
+                        ? ListView.builder(
+                            itemCount: _currentFolderContents.length,
+                            itemBuilder: (context, index) {
+                              return _buildFolderItem(_currentFolderContents[index]);
+                            },
+                          )
+                        : const SizedBox(), // Empty container when no content
+                  ),
+                  const SizedBox(height: 16),
                   
                   // Note Folders
                   ...allNotes.map((folder) => _buildNoteFolder(folder)),
@@ -297,9 +596,122 @@ class _NotesListPageState extends State<NotesListPage> {
     );
   }
 
+  // 获取文件夹中的项目数量
+  int _getFolderItemCount(String folderName) {
+    // 创建临时路径到指定文件夹
+    List<String> tempPath = List.from(_currentPath)..add(folderName);
+    
+    Map<String, dynamic>? current = _fileSystem;
+    
+    // 导航到指定文件夹
+    for (int i = 0; i < tempPath.length; i++) {
+      String pathSegment = tempPath[i];
+      
+      if (current != null && current.containsKey(pathSegment)) {
+        var folderObj = current[pathSegment];
+        if (folderObj is Map) {
+          current = Map<String, dynamic>.from(folderObj);
+        } else {
+          return 0;
+        }
+        
+        // 如果不是最后一个路径段，导航到children
+        if (i < tempPath.length - 1) {
+          if (current['children'] != null) {
+            var childrenObj = current['children'];
+            if (childrenObj is Map) {
+              current = Map<String, dynamic>.from(childrenObj);
+            } else {
+              return 0;
+            }
+          } else {
+            return 0;
+          }
+        }
+      } else {
+        return 0;
+      }
+    }
+    
+    // 计算children的数量
+    if (current != null && current['children'] != null) {
+      var childrenObj = current['children'];
+      if (childrenObj is Map) {
+        return childrenObj.length;
+      }
+    }
+    
+    return 0;
+  }
+
+  Widget _buildFolderItem(String folderName) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        onTap: () {
+          _navigateToFolder(folderName);
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFFE7EDF3),
+                ),
+                child: const Icon(
+                  Icons.folder,
+                  color: Color(0xFF007AFF),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      folderName,
+                      style: const TextStyle(
+                        color: Color(0xFF0D141B),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_getFolderItemCount(folderName)} 个项目',
+                      style: const TextStyle(
+                        color: Color(0xFF4C739A),
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNoteFolder(NoteFolder folder) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(8),
@@ -364,7 +776,7 @@ class _NotesListPageState extends State<NotesListPage> {
 
   Widget _buildSharedNote(SharedNote note) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(8),
@@ -503,66 +915,6 @@ class _NotesListPageState extends State<NotesListPage> {
         );
       },
     );
-  }
-
-  void _showTagsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Filter by Tags'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CheckboxListTile(
-                title: const Text('Work'),
-                value: false,
-                onChanged: (bool? value) {},
-              ),
-              CheckboxListTile(
-                title: const Text('Personal'),
-                value: false,
-                onChanged: (bool? value) {},
-              ),
-              CheckboxListTile(
-                title: const Text('Ideas'),
-                value: false,
-                onChanged: (bool? value) {},
-              ),
-              CheckboxListTile(
-                title: const Text('Important'),
-                value: false,
-                onChanged: (bool? value) {},
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1380EC),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Apply'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 }
 

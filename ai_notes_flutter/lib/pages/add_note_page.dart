@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'note_detail_page.dart';
 import 'chat_page.dart';
 import 'profile_page.dart';
+import 'notes_list_page.dart';
 
 class AddNotePage extends StatefulWidget {
   const AddNotePage({super.key});
@@ -12,7 +13,7 @@ class AddNotePage extends StatefulWidget {
 }
 
 class _AddNotePageState extends State<AddNotePage> {
-  int _selectedIndex = 2; // Notes tab is selected by default
+  int _selectedIndex = 0; // Home tab is selected by default
   
   // 面包屑导航系统
   List<String> _currentPath = ['My Notes']; // Current breadcrumb path
@@ -551,11 +552,11 @@ class _AddNotePageState extends State<AddNotePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Ensure Notes tab is selected when this page is active
+    // Ensure Home tab is selected when this page is active
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _selectedIndex != 2) {
+      if (mounted && _selectedIndex != 0) {
         setState(() {
-          _selectedIndex = 2;
+          _selectedIndex = 0;
         });
       }
     });
@@ -579,7 +580,11 @@ class _AddNotePageState extends State<AddNotePage> {
         );
         break;
       case 2:
-        // Already on Notes page
+        // Navigate to Notes page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const NotesListPage()),
+        );
         break;
       case 3:
         Navigator.pushReplacement(
@@ -899,7 +904,7 @@ class _AddNotePageState extends State<AddNotePage> {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: const Icon(
-                      Icons.close,
+                      Icons.arrow_back,
                       color: Color(0xFF0D141B),
                       size: 24,
                     ),
@@ -1140,19 +1145,23 @@ class _AddNotePageState extends State<AddNotePage> {
           ),
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home),
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble),
+              icon: Icon(Icons.chat_bubble_outline),
+              activeIcon: Icon(Icons.chat_bubble),
               label: 'Chat',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.note, size: 24),
+              icon: Icon(Icons.note_outlined),
+              activeIcon: Icon(Icons.note),
               label: 'Notes',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person),
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
               label: 'Me',
             ),
           ],
