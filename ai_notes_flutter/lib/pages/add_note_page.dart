@@ -674,7 +674,7 @@ class _AddNotePageState extends State<AddNotePage> {
                             constraints: const BoxConstraints(),
                             padding: EdgeInsets.zero,
                           ),
-                        Expanded(
+                        Flexible(
                           child: SingleChildScrollView(
                             controller: _breadcrumbScrollController,
                             scrollDirection: Axis.horizontal,
@@ -938,7 +938,7 @@ class _AddNotePageState extends State<AddNotePage> {
                         'Target Folder',
                         style: TextStyle(
                           color: Color(0xFF0D141B),
-                          fontSize: 22,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: -0.015,
                         ),
@@ -996,7 +996,7 @@ class _AddNotePageState extends State<AddNotePage> {
                         'Upload',
                         style: TextStyle(
                           color: Color(0xFF0D141B),
-                          fontSize: 22,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: -0.015,
                         ),

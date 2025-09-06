@@ -412,7 +412,7 @@ class _NotesListPageState extends State<NotesListPage> {
                             constraints: const BoxConstraints(),
                             padding: EdgeInsets.zero,
                           ),
-                        Expanded(
+                        Flexible(
                           child: SingleChildScrollView(
                             controller: _breadcrumbScrollController,
                             scrollDirection: Axis.horizontal,
