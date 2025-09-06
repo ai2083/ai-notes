@@ -4,6 +4,7 @@ import 'note_detail_page.dart';
 import 'chat_page.dart';
 import 'profile_page.dart';
 import 'notes_list_page.dart';
+import 'create_new_note_page.dart';
 
 class AddNotePage extends StatefulWidget {
   const AddNotePage({super.key});
@@ -1041,6 +1042,40 @@ class _AddNotePageState extends State<AddNotePage> {
                             onTap: () => _startUpload('Website'),
                           ),
                         ],
+                      ),
+                    ),
+
+                    // Create New Note Button
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CreateNewNotePage(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF007AFF),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Text(
+                            'Create New Note',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
 
