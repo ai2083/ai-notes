@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'chat_page.dart';
 import 'note_detail_page.dart';
 import 'profile_page.dart';
+import 'add_note_page.dart';
 
 class NotesListPage extends StatefulWidget {
   const NotesListPage({super.key});
@@ -322,47 +323,25 @@ class _NotesListPageState extends State<NotesListPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               color: const Color(0xFFF1F5F9),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Notes',
-                      style: TextStyle(
-                        color: Color(0xFF0D141B),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.015,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: Colors.transparent,
-                    ),
-                    child: IconButton(
-                      onPressed: () {
-                        _showAddNoteDialog(context);
-                      },
-                      icon: const Icon(
-                        Icons.add,
-                        color: Color(0xFF0D141B),
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ],
+              child: const Text(
+                'Notes',
+                style: TextStyle(
+                  color: Color(0xFF0D141B),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.015,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
 
             // Content
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 100),
+              child: Stack(
                 children: [
+                  ListView(
+                    padding: const EdgeInsets.only(bottom: 100),
+                    children: [
                   // Current Directory Section
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 80, 4), // 增加右边距从16到80 (5倍)
@@ -484,14 +463,38 @@ class _NotesListPageState extends State<NotesListPage> {
                   Container(
                     height: MediaQuery.of(context).size.height * 0.5,
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _currentFolderContents.isNotEmpty
-                        ? ListView.builder(
-                            itemCount: _currentFolderContents.length,
-                            itemBuilder: (context, index) {
-                              return _buildFolderItem(_currentFolderContents[index]);
+                    child: Stack(
+                      children: [
+                        _currentFolderContents.isNotEmpty
+                            ? ListView.builder(
+                                itemCount: _currentFolderContents.length,
+                                itemBuilder: (context, index) {
+                                  return _buildFolderItem(_currentFolderContents[index]);
+                                },
+                              )
+                            : const SizedBox(), // Empty container when no content
+                        
+                        // Add Note Button positioned in the bottom right of folder view
+                        Positioned(
+                          bottom: 16,
+                          right: 16,
+                          child: FloatingActionButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AddNotePage(),
+                                ),
+                              );
                             },
-                          )
-                        : const SizedBox(), // Empty container when no content
+                            backgroundColor: const Color(0xFF007AFF), // Fashionable iOS-style blue
+                            foregroundColor: Colors.white,
+                            child: const Icon(Icons.add, size: 28),
+                            shape: const CircleBorder(), // Ensures perfect circular shape
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 16),
                   
@@ -514,6 +517,8 @@ class _NotesListPageState extends State<NotesListPage> {
 
                   // Shared Notes List
                   ...sharedNotes.map((note) => _buildSharedNote(note)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -860,60 +865,6 @@ class _NotesListPageState extends State<NotesListPage> {
           noteContent: 'Shared note from ${note.sharedBy}. This note contains collaborative content and insights.',
         ),
       ),
-    );
-  }
-
-  void _showAddNoteDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add New Note'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Note title',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              SizedBox(height: 16),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: 'Note content',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Note added successfully!'),
-                    backgroundColor: Color(0xFF1380EC),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1380EC),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Add Note'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
