@@ -625,27 +625,41 @@ class _AddNotePageState extends State<AddNotePage> {
                       Row(
                         children: [
                           if (_currentPath.length < 8)
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border.all(color: const Color(0xFF007AFF), width: 2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: IconButton(
-                                onPressed: () {
-                                  _createNewFolder(setModalState);
-                                },
-                                icon: const Icon(
-                                  Icons.add,
-                                  color: Color(0xFF007AFF),
-                                  size: 20,
+                          Container(
+                            height: 32,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              color: const Color(0xFFE7EDF3),
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                _createNewFolder(setModalState);
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.create_new_folder,
+                                      color: Color(0xFF007AFF),
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      '创建文件夹',
+                                      style: TextStyle(
+                                        color: Color(0xFF007AFF),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                tooltip: '创建新文件夹',
-                                padding: EdgeInsets.zero,
                               ),
                             ),
+                          ),
                           IconButton(
                             onPressed: () => Navigator.pop(context),
                             icon: const Icon(Icons.close),
@@ -720,23 +734,6 @@ class _AddNotePageState extends State<AddNotePage> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Current Path Display
-                  Container(
-                    width: double.infinity,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      reverse: true, // 显示尾部路径
-                      child: Text(
-                        '当前路径: ${_currentPath.join(' > ')}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
                   // Folder List
                   Expanded(
                     child: ListView.builder(
@@ -746,7 +743,6 @@ class _AddNotePageState extends State<AddNotePage> {
                         return ListTile(
                           leading: const Icon(Icons.folder, color: Color(0xFF007AFF)),
                           title: Text(folderName),
-                          trailing: const Icon(Icons.chevron_right, color: Color(0xFF007AFF)),
                           onTap: () {
                             if (_currentPath.length < 8) {
                               _navigateToFolder(folderName, setModalState);
