@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:dio/dio.dart';
 
 class CRDTEditorService {
   static const String _editorAssetPath = 'assets/web/crdt_note_editor.html';
@@ -174,10 +174,19 @@ class CRDTEditorService {
   // Check if CRDT server is available
   static Future<bool> isServerAvailable() async {
     try {
-      final socket = await Socket.connect('localhost', 8800, timeout: Duration(seconds: 2));
-      await socket.close();
-      return true;
+      final dio = Dio();
+      final response = await dio.get(
+        'http://localhost:8800/crdt_note_editor.html',
+        options: Options(
+          headers: {'User-Agent': 'Flutter-App-Health-Check'},
+          receiveTimeout: Duration(seconds: 3),
+          sendTimeout: Duration(seconds: 3),
+        ),
+      );
+      
+      return response.statusCode == 200;
     } catch (e) {
+      print('Server availability check failed: $e');
       return false;
     }
   }
