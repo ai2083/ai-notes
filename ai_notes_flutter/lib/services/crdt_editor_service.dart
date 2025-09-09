@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:dio/dio.dart';
 
@@ -17,16 +18,19 @@ class CRDTEditorService {
   
   // Setup event handlers for Flutter-WebView communication
   void _setupEventHandlers() {
-    _controller?.addJavaScriptHandler(
-      handlerName: 'editorEvent',
-      callback: (args) {
-        if (args.isEmpty) return;
-        
-        final eventData = args.first as Map<String, dynamic>;
-        final event = eventData['event'] as String;
-        final data = eventData['data'] as Map<String, dynamic>;
-        
-        switch (event) {
+    // Only setup JavaScript handlers on mobile platforms
+    // Web platform doesn't support addJavaScriptHandler
+    if (!kIsWeb) {
+      _controller?.addJavaScriptHandler(
+        handlerName: 'editorEvent',
+        callback: (args) {
+          if (args.isEmpty) return;
+          
+          final eventData = args.first as Map<String, dynamic>;
+          final event = eventData['event'] as String;
+          final data = eventData['data'] as Map<String, dynamic>;
+          
+          switch (event) {
           case 'docId':
             _currentDocId = data['docId'] as String;
             onDocIdGenerated?.call(_currentDocId!);
@@ -37,9 +41,10 @@ class CRDTEditorService {
             final content = data['content'] as String? ?? '';
             onContentChanged?.call(title, content);
             break;
-        }
-      },
-    );
+          }
+        },
+      );
+    }
   }
   
   // Open a specific document by ID
@@ -178,9 +183,9 @@ class CRDTEditorService {
       final response = await dio.get(
         'http://localhost:8800/crdt_note_editor.html',
         options: Options(
-          headers: {'User-Agent': 'Flutter-App-Health-Check'},
           receiveTimeout: Duration(seconds: 3),
           sendTimeout: Duration(seconds: 3),
+          // Remove User-Agent header to avoid browser security restrictions
         ),
       );
       
