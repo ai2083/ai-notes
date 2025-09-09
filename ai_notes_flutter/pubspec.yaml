@@ -48,6 +48,10 @@ dependencies:
   # UI Components
   flutter_svg: ^2.0.7
   cached_network_image: ^3.3.0
+  
+  # WebView for CRDT Editor
+  flutter_inappwebview: ^6.0.0
+  webview_flutter: ^4.4.1
   flutter_staggered_grid_view: ^0.7.0
   animations: ^2.0.8
   shimmer: ^3.0.0
@@ -103,6 +107,8 @@ flutter:
   uses-material-design: true
   
   assets:
+    - assets/data/
+    - assets/web/
     - assets/images/
     - assets/icons/
     - assets/audio/

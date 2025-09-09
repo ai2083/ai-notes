@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/crdt_editor_service.dart';
 
 class CreateNewNotePage extends StatefulWidget {
   const CreateNewNotePage({super.key});
@@ -8,28 +9,111 @@ class CreateNewNotePage extends StatefulWidget {
 }
 
 class _CreateNewNotePageState extends State<CreateNewNotePage> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _contentController = TextEditingController();
+  final CRDTEditorService _editorService = CRDTEditorService();
+  String _currentTitle = '';
+  String _currentContent = '';
+  String? _documentId;
+  bool _isServerAvailable = false;
+  bool _isCheckingServer = true;
   
   @override
   void initState() {
     super.initState();
-    // Listen for changes and auto-save
-    _titleController.addListener(_autoSave);
-    _contentController.addListener(_autoSave);
+    _checkServerAvailability();
   }
   
   @override
   void dispose() {
-    _titleController.dispose();
-    _contentController.dispose();
+    _editorService.dispose();
     super.dispose();
   }
   
-  void _autoSave() {
-    // Auto-save functionality - can be implemented to save to local storage or backend
-    // For now, we'll just print the changes
-    print('Auto-saving note: Title="${_titleController.text}", Content="${_contentController.text}"');
+  Future<void> _checkServerAvailability() async {
+    final isAvailable = await CRDTEditorService.isServerAvailable();
+    setState(() {
+      _isServerAvailable = isAvailable;
+      _isCheckingServer = false;
+    });
+    
+    if (!isAvailable) {
+      _showServerUnavailableDialog();
+    }
+  }
+  
+  void _showServerUnavailableDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('CRDT Server Unavailable'),
+        content: const Text(
+          'The collaborative editing server is not available. '
+          'The editor will work in offline mode. Changes will be saved locally '
+          'and can sync when the server becomes available.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Continue Offline'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _checkServerAvailability();
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _onContentChanged(String title, String content) {
+    setState(() {
+      _currentTitle = title;
+      _currentContent = content;
+    });
+    
+    // Auto-save functionality can be implemented here
+    print('Content changed: Title="$title", Content="$content"');
+  }
+  
+  void _onDocIdGenerated(String docId) {
+    setState(() {
+      _documentId = docId;
+    });
+    
+    print('Document ID generated: $docId');
+  }
+  
+  Future<void> _exportContent() async {
+    final content = await _editorService.getContent();
+    if (content != null) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Export Content'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Document ID: ${content['docId']}'),
+                const SizedBox(height: 8),
+                Text('Title: ${content['title']}'),
+                const SizedBox(height: 8),
+                Text('Content: ${content['content']}'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   @override
@@ -47,7 +131,7 @@ class _CreateNewNotePageState extends State<CreateNewNotePage> {
           ),
         ),
         title: const Text(
-          'Create New Note',
+          'Collaborative Note',
           style: TextStyle(
             color: Color(0xFF0D141B),
             fontSize: 18,
@@ -56,66 +140,59 @@ class _CreateNewNotePageState extends State<CreateNewNotePage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (!_isCheckingServer)
+            IconButton(
+              onPressed: _exportContent,
+              icon: const Icon(
+                Icons.share,
+                color: Color(0xFF0D141B),
+              ),
+              tooltip: 'Export Content',
+            ),
+          if (!_isCheckingServer)
+            IconButton(
+              onPressed: _checkServerAvailability,
+              icon: Icon(
+                _isServerAvailable ? Icons.cloud_done : Icons.cloud_off,
+                color: _isServerAvailable ? Colors.green : Colors.orange,
+              ),
+              tooltip: _isServerAvailable ? 'Online' : 'Offline',
+            ),
+        ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              // Note Title Input
-              TextField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  hintText: 'New Note',
-                  hintStyle: TextStyle(
-                    color: Color(0xFF9CA3AF),
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(vertical: 16),
+        child: _isCheckingServer
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Checking CRDT server availability...'),
+                  ],
                 ),
-                style: const TextStyle(
-                  color: Color(0xFF0D141B),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: null,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Note Content Input
-              Expanded(
-                child: TextField(
-                  controller: _contentController,
-                  decoration: const InputDecoration(
-                    hintText: 'Note Content',
-                    hintStyle: TextStyle(
-                      color: Color(0xFF9CA3AF),
-                      fontSize: 16,
-                      fontWeight: FontWeight.normal,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  style: const TextStyle(
-                    color: Color(0xFF0D141B),
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
-                    height: 1.5,
-                  ),
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  textCapitalization: TextCapitalization.sentences,
-                ),
-              ),
-            ],
-          ),
-        ),
+              )
+            : _buildEditor(),
       ),
     );
+  }
+  
+  Widget _buildEditor() {
+    if (_isServerAvailable) {
+      // Online mode with CRDT collaboration
+      return _editorService.createWebView(
+        onContentChanged: _onContentChanged,
+        onDocIdGenerated: _onDocIdGenerated,
+      );
+    } else {
+      // Offline mode with local editing
+      return _editorService.createOfflineWebView(
+        onContentChanged: _onContentChanged,
+        onDocIdGenerated: _onDocIdGenerated,
+        initialTitle: _currentTitle.isEmpty ? null : _currentTitle,
+        initialContent: _currentContent.isEmpty ? null : _currentContent,
+      );
+    }
   }
 }

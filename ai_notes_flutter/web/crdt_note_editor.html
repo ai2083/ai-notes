@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRDT Note Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #F8FAFC;
+            padding: 16px;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .editor-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .title-editor {
+            border: none;
+            outline: none;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #0D141B;
+            background: transparent;
+            resize: none;
+            min-height: 70px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+        
+        .title-editor::placeholder {
+            color: #9CA3AF;
+        }
+        
+        .content-editor {
+            border: none;
+            outline: none;
+            padding: 20px;
+            font-size: 16px;
+            color: #0D141B;
+            background: transparent;
+            resize: none;
+            flex: 1;
+            line-height: 1.5;
+        }
+        
+        .content-editor::placeholder {
+            color: #9CA3AF;
+        }
+        
+        .status-bar {
+            padding: 8px 20px;
+            background: #F9FAFB;
+            border-top: 1px solid #E5E7EB;
+            font-size: 12px;
+            color: #6B7280;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .status-connected { background-color: #10B981; }
+        .status-connecting { background-color: #F59E0B; }
+        .status-disconnected { background-color: #EF4444; }
+        .status-offline { background-color: #6B7280; }
+        
+        .users-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .user-cursor {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        
+        .doc-info-bar {
+            background: #F8FAFC;
+            border-top: 1px solid #E5E7EB;
+            padding: 12px 16px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .doc-id-section, .share-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .doc-label, .share-label {
+            color: #6B7280;
+            font-weight: 500;
+            min-width: 80px;
+        }
+        
+        .doc-id, .share-url {
+            background: #E5E7EB;
+            color: #374151;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 11px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .copy-btn {
+            background: #6366F1;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+        
+        .copy-btn:hover {
+            background: #4F46E5;
+        }
+        
+        .copy-btn:active {
+            background: #3730A3;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <textarea 
+            id="titleEditor" 
+            class="title-editor" 
+            placeholder="Note Title"
+            rows="1"
+        ></textarea>
+        
+        <textarea 
+            id="contentEditor" 
+            class="content-editor" 
+            placeholder="Start writing your note..."
+        ></textarea>
+        
+        <div class="status-bar">
+            <div style="display: flex; align-items: center;">
+                <div id="statusDot" class="status-dot status-connecting"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <div class="users-indicator">
+                <span id="userCount">1 user</span>
+                <div id="userCursors"></div>
+            </div>
+        </div>
+        
+        <!-- Document ID Display -->
+        <div class="doc-info-bar">
+            <div class="doc-id-section">
+                <span class="doc-label">Document ID:</span>
+                <code id="docIdDisplay" class="doc-id"></code>
+                <button id="copyDocId" class="copy-btn" title="Copy Document ID">📋</button>
+            </div>
+            <div class="share-section">
+                <span class="share-label">Share URL:</span>
+                <code id="shareUrl" class="share-url"></code>
+                <button id="copyUrl" class="copy-btn" title="Copy Share URL">🔗</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Map for ES Modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "yjs": "https://cdn.jsdelivr.net/npm/yjs@13.6.27/+esm",
+            "y-websocket": "https://cdn.jsdelivr.net/npm/y-websocket@3.0.0/+esm",
+            "y-indexeddb": "https://cdn.jsdelivr.net/npm/y-indexeddb@9.0.12/+esm"
+        }
+    }
+    </script>
+
+    <!-- CRDT Editor Implementation -->
+    <script type="module">
+        import * as Y from 'yjs';
+        import { WebsocketProvider } from 'y-websocket';
+        import { IndexeddbPersistence } from 'y-indexeddb';
+
+        class CRDTNoteEditor {
+            constructor() {
+                this.docId = this.getDocumentId();
+                this.ydoc = new Y.Doc();
+                this.titleText = this.ydoc.getText('title');
+                this.contentText = this.ydoc.getText('content');
+                
+                // UI Elements
+                this.titleEditor = document.getElementById('titleEditor');
+                this.contentEditor = document.getElementById('contentEditor');
+                this.statusDot = document.getElementById('statusDot');
+                this.statusText = document.getElementById('statusText');
+                this.userCount = document.getElementById('userCount');
+                this.docIdDisplay = document.getElementById('docIdDisplay');
+                this.shareUrl = document.getElementById('shareUrl');
+                this.copyDocIdBtn = document.getElementById('copyDocId');
+                this.copyUrlBtn = document.getElementById('copyUrl');
+                
+                this.isUpdating = false;
+                this.connectedUsers = new Set();
+                
+                this.init();
+            }
+            
+            getDocumentId() {
+                // Get docId from URL params or generate new one
+                const urlParams = new URLSearchParams(window.location.search);
+                const docId = urlParams.get('docId') || this.generateDocId();
+                
+                // Notify Flutter about the document ID
+                this.notifyFlutter('docId', { docId });
+                
+                return docId;
+            }
+            
+            generateDocId() {
+                return 'note_' + Date.now() + '_' + Math.random().toString(36).substring(2);
+            }
+            
+            async init() {
+                try {
+                    this.updateStatus('connecting', 'Initializing...');
+                    
+                    // Setup IndexedDB persistence (offline capability)
+                    this.indexeddbProvider = new IndexeddbPersistence(this.docId, this.ydoc);
+                    this.indexeddbProvider.on('synced', () => {
+                        console.log('IndexedDB synced');
+                        this.loadInitialContent();
+                    });
+                    
+                    // Setup WebSocket provider (online collaboration)
+                    this.websocketProvider = new WebsocketProvider(
+                        'ws://localhost:8800',
+                        this.docId,
+                        this.ydoc,
+                        { protocols: ['y-websocket'] }
+                    );
+                    
+                    this.setupEventHandlers();
+                    this.setupEditorSync();
+                    this.setupDocumentInfo();
+                    
+                    console.log('CRDT Editor initialized for document:', this.docId);
+                    
+                } catch (error) {
+                    console.error('Failed to initialize CRDT editor:', error);
+                    this.updateStatus('disconnected', 'Failed to initialize');
+                }
+            }
+            
+            setupEventHandlers() {
+                // WebSocket status events
+                this.websocketProvider.on('status', (event) => {
+                    console.log('WebSocket status:', event.status);
+                    switch (event.status) {
+                        case 'connected':
+                            this.updateStatus('connected', 'Connected');
+                            break;
+                        case 'connecting':
+                            this.updateStatus('connecting', 'Connecting...');
+                            break;
+                        case 'disconnected':
+                            this.updateStatus('offline', 'Offline mode');
+                            break;
+                    }
+                });
+                
+                // Awareness (user cursors and presence)
+                const awareness = this.websocketProvider.awareness;
+                awareness.on('change', () => {
+                    this.updateUserPresence();
+                });
+                
+                // Document update events
+                this.ydoc.on('update', (update, origin) => {
+                    if (origin !== 'local') {
+                        console.log('Received remote update');
+                    }
+                    
+                    // Notify Flutter about content changes
+                    this.notifyFlutter('contentChanged', {
+                        title: this.titleText.toString(),
+                        content: this.contentText.toString()
+                    });
+                });
+            }
+            
+            setupEditorSync() {
+                // Title editor synchronization
+                this.titleText.observe(() => {
+                    if (!this.isUpdating) {
+                        this.syncFromYjs('title');
+                    }
+                });
+                
+                this.titleEditor.addEventListener('input', () => {
+                    if (!this.isUpdating) {
+                        this.syncToYjs('title');
+                    }
+                });
+                
+                // Content editor synchronization
+                this.contentText.observe(() => {
+                    if (!this.isUpdating) {
+                        this.syncFromYjs('content');
+                    }
+                });
+                
+                this.contentEditor.addEventListener('input', () => {
+                    if (!this.isUpdating) {
+                        this.syncToYjs('content');
+                    }
+                });
+                
+                // Auto-resize title editor
+                this.titleEditor.addEventListener('input', () => {
+                    this.autoResizeTextarea(this.titleEditor);
+                });
+                
+                // Initial sync
+                this.loadInitialContent();
+            }
+            
+            syncToYjs(type) {
+                this.isUpdating = true;
+                try {
+                    const editor = type === 'title' ? this.titleEditor : this.contentEditor;
+                    const ytext = type === 'title' ? this.titleText : this.contentText;
+                    
+                    const editorContent = editor.value;
+                    const yjsContent = ytext.toString();
+                    
+                    if (editorContent !== yjsContent) {
+                        this.ydoc.transact(() => {
+                            ytext.delete(0, ytext.length);
+                            ytext.insert(0, editorContent);
+                        }, 'local');
+                    }
+                } finally {
+                    this.isUpdating = false;
+                }
+            }
+            
+            syncFromYjs(type) {
+                this.isUpdating = true;
+                try {
+                    const editor = type === 'title' ? this.titleEditor : this.contentEditor;
+                    const ytext = type === 'title' ? this.titleText : this.contentText;
+                    
+                    const content = ytext.toString();
+                    if (editor.value !== content) {
+                        const cursorPos = editor.selectionStart;
+                        editor.value = content;
+                        
+                        // Try to restore cursor position
+                        if (cursorPos <= content.length) {
+                            editor.setSelectionRange(cursorPos, cursorPos);
+                        }
+                        
+                        if (type === 'title') {
+                            this.autoResizeTextarea(editor);
+                        }
+                    }
+                } finally {
+                    this.isUpdating = false;
+                }
+            }
+            
+            loadInitialContent() {
+                const title = this.titleText.toString();
+                const content = this.contentText.toString();
+                
+                if (title && this.titleEditor.value !== title) {
+                    this.titleEditor.value = title;
+                    this.autoResizeTextarea(this.titleEditor);
+                }
+                
+                if (content && this.contentEditor.value !== content) {
+                    this.contentEditor.value = content;
+                }
+                
+                console.log('Loaded initial content:', { title: title.length, content: content.length });
+            }
+            
+            autoResizeTextarea(textarea) {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+            }
+            
+            updateStatus(status, text) {
+                this.statusDot.className = `status-dot status-${status}`;
+                this.statusText.textContent = text;
+            }
+            
+            updateUserPresence() {
+                const awareness = this.websocketProvider.awareness;
+                const states = awareness.getStates();
+                const userCount = states.size;
+                
+                this.userCount.textContent = userCount === 1 ? '1 user' : `${userCount} users`;
+                
+                // Update user cursors (simplified version)
+                const userCursors = document.getElementById('userCursors');
+                userCursors.innerHTML = '';
+                
+                states.forEach((state, clientId) => {
+                    if (clientId !== awareness.clientID && state.user) {
+                        const cursor = document.createElement('div');
+                        cursor.className = 'user-cursor';
+                        cursor.style.backgroundColor = state.user.color || '#6366F1';
+                        cursor.title = state.user.name || `User ${clientId}`;
+                        userCursors.appendChild(cursor);
+                    }
+                });
+            }
+            
+            setupDocumentInfo() {
+                // Display document ID
+                this.docIdDisplay.textContent = this.docId;
+                
+                // Create and display share URL
+                const currentUrl = new URL(window.location);
+                currentUrl.searchParams.set('docId', this.docId);
+                const shareUrl = currentUrl.toString();
+                this.shareUrl.textContent = shareUrl;
+                
+                // Setup copy buttons
+                this.copyDocIdBtn.addEventListener('click', () => {
+                    this.copyToClipboard(this.docId, 'Document ID copied!');
+                });
+                
+                this.copyUrlBtn.addEventListener('click', () => {
+                    this.copyToClipboard(shareUrl, 'Share URL copied!');
+                });
+                
+                // Update URL if docId was generated
+                const urlParams = new URLSearchParams(window.location.search);
+                if (!urlParams.get('docId')) {
+                    window.history.replaceState({}, '', shareUrl);
+                }
+            }
+            
+            async copyToClipboard(text, successMessage) {
+                try {
+                    await navigator.clipboard.writeText(text);
+                    this.showCopyNotification(successMessage);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = text;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand('copy');
+                        this.showCopyNotification(successMessage);
+                    } catch (fallbackErr) {
+                        console.error('Fallback copy failed:', fallbackErr);
+                    }
+                    document.body.removeChild(textArea);
+                }
+            }
+            
+            showCopyNotification(message) {
+                // Create temporary notification
+                const notification = document.createElement('div');
+                notification.textContent = message;
+                notification.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: #10B981;
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    font-size: 14px;
+                    z-index: 1000;
+                    animation: slideIn 0.3s ease;
+                `;
+                
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 2000);
+            }
+            
+            notifyFlutter(event, data) {
+                // For flutter_inappwebview
+                if (window.flutter_inappwebview) {
+                    window.flutter_inappwebview.callHandler('editorEvent', { event, data });
+                }
+                
+                // For webview_flutter
+                if (window.FlutterChannel) {
+                    window.FlutterChannel.postMessage(JSON.stringify({ event, data }));
+                }
+                
+                // Console log for debugging
+                console.log('Notify Flutter:', event, data);
+            }
+            
+            // Public API for Flutter integration
+            openDocument(docId) {
+                if (docId && docId !== this.docId) {
+                    window.location.search = `?docId=${docId}`;
+                }
+            }
+            
+            getContent() {
+                return {
+                    title: this.titleText.toString(),
+                    content: this.contentText.toString(),
+                    docId: this.docId
+                };
+            }
+            
+            setContent(title, content) {
+                this.isUpdating = true;
+                try {
+                    if (title !== undefined) {
+                        this.titleText.delete(0, this.titleText.length);
+                        this.titleText.insert(0, title);
+                        this.titleEditor.value = title;
+                        this.autoResizeTextarea(this.titleEditor);
+                    }
+                    
+                    if (content !== undefined) {
+                        this.contentText.delete(0, this.contentText.length);
+                        this.contentText.insert(0, content);
+                        this.contentEditor.value = content;
+                    }
+                } finally {
+                    this.isUpdating = false;
+                }
+            }
+        }
+        
+        // Initialize editor when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.crdtEditor = new CRDTNoteEditor();
+        });
+        
+        // Expose API for Flutter
+        window.editorAPI = {
+            openDocument: (docId) => window.crdtEditor?.openDocument(docId),
+            getContent: () => window.crdtEditor?.getContent(),
+            setContent: (title, content) => window.crdtEditor?.setContent(title, content)
+        };
+    </script>
+</body>
+</html>
