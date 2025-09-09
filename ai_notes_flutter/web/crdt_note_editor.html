@@ -220,11 +220,11 @@
     <!-- Import Map for ES Modules -->
     <script type="importmap">
     {
-        "imports": {
-            "yjs": "https://cdn.jsdelivr.net/npm/yjs@13.6.27/+esm",
-            "y-websocket": "https://cdn.jsdelivr.net/npm/y-websocket@3.0.0/+esm",
-            "y-indexeddb": "https://cdn.jsdelivr.net/npm/y-indexeddb@9.0.12/+esm"
-        }
+    "imports": {
+        "yjs": "https://esm.sh/yjs@13.6.27",
+        "y-websocket": "https://esm.sh/y-websocket@3.0.0?external=yjs&deps=y-protocols@1.0.5",
+        "y-indexeddb": "https://esm.sh/y-indexeddb@9.0.12?external=yjs"
+    }
     }
     </script>
 
@@ -252,7 +252,6 @@
                 this.copyDocIdBtn = document.getElementById('copyDocId');
                 this.copyUrlBtn = document.getElementById('copyUrl');
                 
-                this.isUpdating = false;
                 this.connectedUsers = new Set();
                 
                 this.init();
@@ -329,9 +328,7 @@
                 
                 // Document update events
                 this.ydoc.on('update', (update, origin) => {
-                    if (origin !== 'local') {
-                        console.log('Received remote update');
-                    }
+                    console.log('Document updated, origin:', origin);
                     
                     // Notify Flutter about content changes
                     this.notifyFlutter('contentChanged', {
@@ -343,29 +340,29 @@
             
             setupEditorSync() {
                 // Title editor synchronization
-                this.titleText.observe(() => {
-                    if (!this.isUpdating) {
+                this.titleText.observe((event) => {
+                    console.log('Title changed by', event.transaction.local ? 'local' : 'remote');
+                    if (!event.transaction.local) {
+                        // Remote change - update editor
                         this.syncFromYjs('title');
                     }
                 });
                 
                 this.titleEditor.addEventListener('input', () => {
-                    if (!this.isUpdating) {
-                        this.syncToYjs('title');
-                    }
+                    this.syncToYjs('title');
                 });
                 
                 // Content editor synchronization
-                this.contentText.observe(() => {
-                    if (!this.isUpdating) {
+                this.contentText.observe((event) => {
+                    console.log('Content changed by', event.transaction.local ? 'local' : 'remote');
+                    if (!event.transaction.local) {
+                        // Remote change - update editor
                         this.syncFromYjs('content');
                     }
                 });
                 
                 this.contentEditor.addEventListener('input', () => {
-                    if (!this.isUpdating) {
-                        this.syncToYjs('content');
-                    }
+                    this.syncToYjs('content');
                 });
                 
                 // Auto-resize title editor
@@ -378,47 +375,39 @@
             }
             
             syncToYjs(type) {
-                this.isUpdating = true;
-                try {
-                    const editor = type === 'title' ? this.titleEditor : this.contentEditor;
-                    const ytext = type === 'title' ? this.titleText : this.contentText;
-                    
-                    const editorContent = editor.value;
-                    const yjsContent = ytext.toString();
-                    
-                    if (editorContent !== yjsContent) {
-                        this.ydoc.transact(() => {
-                            ytext.delete(0, ytext.length);
-                            ytext.insert(0, editorContent);
-                        }, 'local');
-                    }
-                } finally {
-                    this.isUpdating = false;
+                const editor = type === 'title' ? this.titleEditor : this.contentEditor;
+                const ytext = type === 'title' ? this.titleText : this.contentText;
+                
+                const editorContent = editor.value;
+                const yjsContent = ytext.toString();
+                
+                if (editorContent !== yjsContent) {
+                    console.log(`Syncing ${type} to Y.js:`, editorContent);
+                    this.ydoc.transact(() => {
+                        ytext.delete(0, ytext.length);
+                        ytext.insert(0, editorContent);
+                    });
                 }
             }
             
             syncFromYjs(type) {
-                this.isUpdating = true;
-                try {
-                    const editor = type === 'title' ? this.titleEditor : this.contentEditor;
-                    const ytext = type === 'title' ? this.titleText : this.contentText;
+                const editor = type === 'title' ? this.titleEditor : this.contentEditor;
+                const ytext = type === 'title' ? this.titleText : this.contentText;
+                
+                const content = ytext.toString();
+                if (editor.value !== content) {
+                    console.log(`Syncing ${type} from Y.js:`, content);
+                    const cursorPos = editor.selectionStart;
+                    editor.value = content;
                     
-                    const content = ytext.toString();
-                    if (editor.value !== content) {
-                        const cursorPos = editor.selectionStart;
-                        editor.value = content;
-                        
-                        // Try to restore cursor position
-                        if (cursorPos <= content.length) {
-                            editor.setSelectionRange(cursorPos, cursorPos);
-                        }
-                        
-                        if (type === 'title') {
-                            this.autoResizeTextarea(editor);
-                        }
+                    // Try to restore cursor position
+                    if (cursorPos <= content.length) {
+                        editor.setSelectionRange(cursorPos, cursorPos);
                     }
-                } finally {
-                    this.isUpdating = false;
+                    
+                    if (type === 'title') {
+                        this.autoResizeTextarea(editor);
+                    }
                 }
             }
             
@@ -575,22 +564,17 @@
             }
             
             setContent(title, content) {
-                this.isUpdating = true;
-                try {
-                    if (title !== undefined) {
-                        this.titleText.delete(0, this.titleText.length);
-                        this.titleText.insert(0, title);
-                        this.titleEditor.value = title;
-                        this.autoResizeTextarea(this.titleEditor);
-                    }
-                    
-                    if (content !== undefined) {
-                        this.contentText.delete(0, this.contentText.length);
-                        this.contentText.insert(0, content);
-                        this.contentEditor.value = content;
-                    }
-                } finally {
-                    this.isUpdating = false;
+                if (title !== undefined) {
+                    this.titleText.delete(0, this.titleText.length);
+                    this.titleText.insert(0, title);
+                    this.titleEditor.value = title;
+                    this.autoResizeTextarea(this.titleEditor);
+                }
+                
+                if (content !== undefined) {
+                    this.contentText.delete(0, this.contentText.length);
+                    this.contentText.insert(0, content);
+                    this.contentEditor.value = content;
                 }
             }
         }
