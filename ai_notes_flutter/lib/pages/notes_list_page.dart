@@ -3,6 +3,7 @@ import 'chat_page.dart';
 import 'note_detail_page.dart';
 import 'profile_page.dart';
 import 'add_note_page.dart';
+import '../widgets/note_creation_dialog.dart';
 
 class NotesListPage extends StatefulWidget {
   const NotesListPage({super.key});
@@ -479,11 +480,18 @@ class _NotesListPageState extends State<NotesListPage> {
                           bottom: 16,
                           right: 16,
                           child: FloatingActionButton(
-                            onPressed: () {
-                              Navigator.push(
+                            onPressed: () async {
+                              // 获取当前文件夹路径作为target folder
+                              final currentFolder = _currentPath.join('/');
+                              
+                              // 跳转到Note Detail页面并显示创建对话框
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const AddNotePage(),
+                                  builder: (context) => NoteDetailPage(
+                                    showCreationDialog: true,
+                                    targetFolder: currentFolder,
+                                  ),
                                 ),
                               );
                             },

@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 import 'chat_page.dart';
 import 'notes_list_page.dart';
 import 'profile_page.dart';
+import 'create_new_note_page.dart';
+import 'add_note_page.dart';
+import '../widgets/note_creation_dialog.dart';
 
 class NoteDetailPage extends StatefulWidget {
   final String noteTitle;
   final String noteContent;
+  final bool showCreationDialog; // 新参数：是否显示创建对话框
+  final String? targetFolder;
   
   const NoteDetailPage({
     super.key,
     this.noteTitle = 'Note Title',
     this.noteContent = 'This note covers the key concepts of AI in note-taking, including summarization, question generation, and flashcard creation.',
+    this.showCreationDialog = true, // 默认显示对话框
+    this.targetFolder,
   });
 
   @override
@@ -22,11 +29,22 @@ class _NoteDetailPageState extends State<NoteDetailPage> with TickerProviderStat
   late TabController _tabController;
   
   final List<bool> _actionItems = [false, false]; // For checkboxes
+  
+  // 新增状态变量
+  bool _showEditor = false;
+  String? _selectedAction;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    
+    // 如果需要显示创建对话框，则在构建完成后显示
+    if (widget.showCreationDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showCreationDialog();
+      });
+    }
   }
   
   @override
@@ -40,6 +58,53 @@ class _NoteDetailPageState extends State<NoteDetailPage> with TickerProviderStat
         });
       }
     });
+  }
+  
+  // 显示创建选择对话框
+  Future<void> _showCreationDialog() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => NoteCreationDialog(
+        targetFolder: widget.targetFolder,
+      ),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _selectedAction = result['action'];
+      });
+      
+      if (result['action'] == 'create') {
+        // 显示CRDT编辑器
+        setState(() {
+          _showEditor = true;
+        });
+      } else if (result['action'] == 'upload') {
+        // 显示上传对话框
+        _showUploadDialog();
+      }
+    } else {
+      // 用户取消了，返回上一页
+      Navigator.of(context).pop();
+    }
+  }
+  
+  // 显示上传对话框
+  Future<void> _showUploadDialog() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AddNotePage(),
+        fullscreenDialog: true,
+      ),
+    );
+    
+    if (result != null) {
+      setState(() {
+        _showEditor = true;
+      });
+    }
   }
 
   @override
@@ -233,6 +298,21 @@ class _NoteDetailPageState extends State<NoteDetailPage> with TickerProviderStat
   }
 
   Widget _buildNoteContent() {
+    // 如果选择了创建笔记或上传文件，显示编辑器
+    if (_showEditor) {
+      if (_selectedAction == 'create') {
+        return CreateNewNotePage(
+          targetFolder: widget.targetFolder,
+        );
+      } else if (_selectedAction == 'upload') {
+        // 显示上传内容的编辑器
+        return CreateNewNotePage(
+          targetFolder: widget.targetFolder,
+        );
+      }
+    }
+    
+    // 默认显示原有的笔记内容
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
