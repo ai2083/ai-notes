@@ -6,8 +6,11 @@ import 'pages/profile_page.dart';
 import 'pages/note_detail_page.dart';
 import 'pages/add_note_page.dart';
 import 'data/default_notes_generator.dart';
+import 'core/di/injection.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await configureDependencies();
   runApp(const ProviderScope(child: MyApp()));
 }
 

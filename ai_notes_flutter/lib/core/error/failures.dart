@@ -92,3 +92,11 @@ class TimeoutFailure extends Failure {
     int? code,
   }) : super(message: message, code: code);
 }
+
+// 未找到错误
+class NotFoundFailure extends Failure {
+  const NotFoundFailure({
+    required String message,
+    int? code,
+  }) : super(message: message, code: code);
+}

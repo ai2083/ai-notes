@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
+import '../../pages/create_new_note_page.dart';
 
 class AppRouter {
   static const String splash = '/';
@@ -12,6 +13,8 @@ class AppRouter {
   static const String profile = '/profile';
   static const String notes = '/notes';
   static const String noteDetail = '/note-detail';
+  static const String createNote = '/create-note';
+  static const String editNote = '/edit-note';
   static const String search = '/search';
   static const String settings = '/settings';
 
@@ -41,6 +44,35 @@ class AppRouter {
           ),
           settings: settings,
         );
+      case createNote:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final targetFolder = args?['targetFolder'] as String?;
+        return MaterialPageRoute(
+          builder: (context) => CreateNewNotePage(
+            targetFolder: targetFolder,
+          ),
+          settings: settings,
+        );
+      case editNote:
+        final args = settings.arguments as Map<String, dynamic>?;
+        final noteId = args?['noteId'] as String?;
+        final targetFolder = args?['targetFolder'] as String?;
+        
+        if (noteId == null) {
+          return MaterialPageRoute(
+            builder: (context) => const Scaffold(
+              body: Center(child: Text('Note ID required')),
+            ),
+          );
+        }
+        
+        return MaterialPageRoute(
+          builder: (context) => CreateNewNotePage(
+            targetFolder: targetFolder,
+            existingNoteId: noteId,
+          ),
+          settings: settings,
+        );
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(
@@ -51,39 +83,5 @@ class AppRouter {
           settings: settings,
         );
     }
-  }
-
-  static Route<dynamic> _slideTransition(Widget child, RouteSettings settings) {
-    return PageRouteBuilder(
-      settings: settings,
-      pageBuilder: (context, animation, secondaryAnimation) => child,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        const begin = Offset(1.0, 0.0);
-        const end = Offset.zero;
-        const curve = Curves.ease;
-
-        var tween = Tween(begin: begin, end: end).chain(
-          CurveTween(curve: curve),
-        );
-
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
-        );
-      },
-    );
-  }
-
-  static Route<dynamic> _fadeTransition(Widget child, RouteSettings settings) {
-    return PageRouteBuilder(
-      settings: settings,
-      pageBuilder: (context, animation, secondaryAnimation) => child,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
-      },
-    );
   }
 }
